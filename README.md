@@ -1,4 +1,5 @@
 # Q-ViT: Accurate and Fully Quantized Low-bit Vision Transformer
+[pic](pic.png)
 
 ## Tips
 
