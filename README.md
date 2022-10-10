@@ -1,7 +1,7 @@
 # Q-ViT: Accurate and Fully Quantized Low-bit Vision Transformer
 
 <div align="center">
-  <img src="pic.png" width="600"/>
+  <img src="pic.png" width="800"/>
 </div>
 
 ## Tips
