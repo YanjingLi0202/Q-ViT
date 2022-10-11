@@ -1,5 +1,8 @@
 # Q-ViT: Accurate and Fully Quantized Low-bit Vision Transformer
 
+Pytorch implementation of our Q-ViT accepted by NeurIPS2022.
+
+
 <div align="center">
   <img src="pic.png" width="800"/>
 </div>
