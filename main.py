@@ -380,7 +380,7 @@ def main(args):
             data_loader_train.sampler.set_epoch(epoch)
 
         train_stats = train_one_epoch(
-            model, teacher_model, criterion, data_loader_train,
+            model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
             set_training_mode=args.finetune == ''  # keep in eval mode during finetuning
