@@ -16,12 +16,11 @@ from losses import DistillationLoss
 import utils
 
 
-def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
+def train_one_epoch(model: torch.nn.Module, teacher_model: torch.nn.Module, criterion: DistillationLoss,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, loss_scaler, max_norm: float = 0,
                     model_ema: Optional[ModelEma] = None, mixup_fn: Optional[Mixup] = None,
                     set_training_mode=True):
-
     model.train(set_training_mode)
     teacher_model.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
@@ -33,11 +32,12 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
         samples = samples.to(device, non_blocking=True)
         targets = targets.to(device, non_blocking=True)
 
-        if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+        # if mixup_fn is not None:
+        #     samples, targets = mixup_fn(samples, targets)
 
         outputs = model(samples)
         loss = criterion(samples, outputs, targets)
+
 
         loss_value = loss.item()
 
@@ -45,14 +45,18 @@ def train_one_epoch(model: torch.nn.Module, criterion: DistillationLoss,
             print("Loss is {}, stopping training".format(loss_value))
             sys.exit(1)
 
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
         # this attribute is added by timm on one optimizer (adahessian)
-        is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
-        loss_scaler(loss, optimizer, clip_grad=max_norm,
-                    parameters=model.parameters(), create_graph=is_second_order)
+        # is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+        # loss_scaler(loss, optimizer, clip_grad=max_norm,
+        #             parameters=model.parameters(), create_graph=is_second_order)
 
         torch.cuda.synchronize()
-        if model_ema is not None:
-            model_ema.update(model)
+        # if model_ema is not None:
+        #     model_ema.update(model)
 
         metric_logger.update(loss=loss_value)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
@@ -77,6 +81,7 @@ def evaluate(data_loader, model, device):
         target = target.to(device, non_blocking=True)
 
         # compute output
+        # with torch.cuda.amp.autocast():
         output = model(images)
         loss = criterion(output, target)
 
