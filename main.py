@@ -18,13 +18,18 @@ from timm.optim import create_optimizer
 from timm.utils import NativeScaler, get_state_dict, ModelEma
 
 from datasets import build_dataset
-from engine import train_one_epoch, evaluate
+from engine_ts import train_one_epoch, evaluate
 from losses import DistillationLoss
 from samplers import RASampler
-
+# import models
 import quant_vision_transformer
-
 import utils
+
+# import os
+# os.environ['SLURM_PROCID']
+
+
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('DeiT training and evaluation script', add_help=False)
@@ -99,7 +104,7 @@ def get_args_parser():
 
     parser.add_argument('--repeated-aug', action='store_true')
     parser.add_argument('--no-repeated-aug', action='store_false', dest='repeated_aug')
-    parser.set_defaults(repeated_aug=True)
+    parser.set_defaults(repeated_aug=False)
 
     # * Random Erase params
     parser.add_argument('--reprob', type=float, default=0.25, metavar='PCT',
@@ -166,10 +171,6 @@ def get_args_parser():
     parser.add_argument('--world_size', default=1, type=int,
                         help='number of distributed processes')
     parser.add_argument('--dist_url', default='env://', help='url used to set up distributed training')
-    parser.add_argument('--root_dir_train', default='/mnt/lustre/share/images/train', type=str, help='dataset path')
-    parser.add_argument('--meta_file_train', default='/mnt/lustre/share/images/meta/train.txt', type=str, help='dataset path')
-    parser.add_argument('--root_dir_val', default='/mnt/lustre/share/images/val/', type=str, help='dataset path')
-    parser.add_argument('--meta_file_val', default='/mnt/lustre/share/images/meta/val.txt', type=str, help='dataset path')
     return parser
 
 
@@ -198,7 +199,7 @@ def main(args):
     if True: # args.distributed:
         num_tasks = utils.get_world_size()
         global_rank = utils.get_rank()
-        if True: # args.repeated_aug:
+        if args.repeated_aug:
             sampler_train = RASampler(
                 dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
             )
@@ -219,6 +220,7 @@ def main(args):
         sampler_train = torch.utils.data.RandomSampler(dataset_train)
         sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
+    print(sampler_train)
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
         batch_size=args.batch_size,
@@ -292,13 +294,13 @@ def main(args):
     model.to(device)
 
     model_ema = None
-    if args.model_ema:
+    '''if args.model_ema:
         # Important to create EMA model after cuda(), DP wrapper, and AMP but before SyncBN and DDP wrapper
         model_ema = ModelEma(
             model,
             decay=args.model_ema_decay,
             device='cpu' if args.model_ema_force_cpu else '',
-            resume='')
+            resume='')'''
 
     model_without_ddp = model
     if args.distributed:
@@ -312,6 +314,20 @@ def main(args):
     print(args.opt)
 
     optimizer = create_optimizer(args, model_without_ddp)
+
+    # ------------ Different lr for Attention (qkv) ------------
+    '''all_parameters = model_without_ddp.parameters()
+    weight_parameters = []
+    for pname, p in model_without_ddp.named_parameters():
+        if 'qkv.weight' in pname:
+            weight_parameters.append(p)
+    weight_parameters_id = list(map(id, weight_parameters))
+    other_parameters = list(filter(lambda p: id(p) not in weight_parameters_id, all_parameters))
+
+    optimizer = torch.optim.Adam(
+            [{'params' : other_parameters},
+            {'params' : weight_parameters, 'lr' : args.lr }],
+            lr=args.lr, weight_decay=args.weight_decay)'''
     
     loss_scaler = NativeScaler()
 
@@ -327,20 +343,27 @@ def main(args):
     else:
         criterion = torch.nn.CrossEntropyLoss()
 
+    # criterion_dmd = torch.nn.MSELoss()
     criterion = torch.nn.CrossEntropyLoss()
 
     teacher_model = None
     if args.distillation_type != 'none':
-        assert args.teacher_path, 'need to specify teacher-path when using distillation'
-        print(f"Creating teacher model: {args.teacher_model}")
+        # assert args.teacher_path, 'need to specify teacher-path when using distillation'
+        # print(f"Creating teacher model: {args.teacher_model}")
         teacher_model = create_model(
             args.teacher_model,
             pretrained=True,
             num_classes=args.nb_classes,
         )
-
+        '''if args.teacher_path.startswith('https'):
+            checkpoint = torch.hub.load_state_dict_from_url(
+                args.teacher_path, map_location='cpu', check_hash=True)
+        else:
+            checkpoint = torch.load(args.teacher_path, map_location='cpu')'''
+        '''teacher_model.load_state_dict(checkpoint['model'])'''
         teacher_model.to(device)
         teacher_model.eval()
+    # print(teacher_model)
 
     # wrap the criterion in our custom DistillationLoss, which
     # just dispatches to the original criterion if args.distillation_type is 'none'
@@ -380,7 +403,7 @@ def main(args):
             data_loader_train.sampler.set_epoch(epoch)
 
         train_stats = train_one_epoch(
-            model, criterion, data_loader_train,
+            model, teacher_model, criterion, data_loader_train,
             optimizer, device, epoch, loss_scaler,
             args.clip_grad, model_ema, mixup_fn,
             set_training_mode=args.finetune == ''  # keep in eval mode during finetuning
