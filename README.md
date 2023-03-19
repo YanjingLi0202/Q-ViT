@@ -18,6 +18,25 @@ Our code is heavily borrowed from DeiT (https://github.com/facebookresearch/deit
 * Torchvision 0.8.2
 * timm 0.4.12
 
+## Training:
+
+### Train Q-ViT Deit-T 4bits:
+
+We train the 2/3/4 bits Q-ViT Deit-T with 512 batchsize and 3e-4 lr. Please note that we use DistribuedSampler for Tiny models. 
+
+When training 2/3 bits Q-ViT Deit-T, please change the model into 'twobits_deit_tiny_patch16_224/threebits_deit_tiny_patch16_224'
+
+  > python -m torch.distributed.launch --master_port=12345 --nproc_per_node=4 --use_env main.py --model fourbits_deit_tiny_patch16_224 --epochs 300 --warmup-epochs 0 --weight-decay 0. --batch-size 128  --data-path /mnt/lustre/share/images/ --lr 3e-4 --no-repeated-aug --output_dir ./dist_4bit_tiny_lamb_3e-4_300_512 --distillation-type hard --teacher-model deit_tiny_patch16_224 --opt fusedlamb 
+
+### Train Q-ViT Deit-S 2/3/4bits:
+
+We train the 2/3/4 bits Q-ViT Deit-S with 512 batchsize and 3e-4 lr. Please note that we use RASampler for Small models. 
+
+When training 2/3 bits Q-ViT Deit-S, please change the model into 'twobits_deit_small_patch16_224/threebits_deit_small_patch16_224'
+
+  > python -m torch.distributed.launch --master_port=12345 --nproc_per_node=4 --use_env main.py --model fourbits_deit_small_patch16_224 --epochs 300 --warmup-epochs 0 --weight-decay 0. --batch-size 128  --data-path /mnt/lustre/share/images/ --lr 3e-4 --repeated-aug --output_dir ./dist_4bit_small_lamb_3e-4_300_512 --distillation-type hard --teacher-model deit_small_patch16_224 --opt fusedlamb 
+
+
 ## Evaluation: 
 
   ### Eval Q-ViT Deit-S 2bits: (72.0% Top-1 Acc.):
