@@ -497,7 +497,7 @@ def fourbits_deit_small_patch16_224(pretrained=False, **kwargs):
     model.default_cfg = _cfg()
     if pretrained:
         torch.hub.load_state_dict_from_url(
-            url='https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth',
+            url='https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth',
             map_location="cpu", check_hash=True
         )
     return model
@@ -510,7 +510,7 @@ def threebits_deit_small_patch16_224(pretrained=False, **kwargs):
     model.default_cfg = _cfg()
     if pretrained:
         torch.hub.load_state_dict_from_url(
-            url='https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth',
+            url='https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth',
             map_location="cpu", check_hash=True
         )
     return model
@@ -523,7 +523,7 @@ def twobits_deit_small_patch16_224(pretrained=False, **kwargs):
     model.default_cfg = _cfg()
     if pretrained:
         torch.hub.load_state_dict_from_url(
-            url='https://dl.fbaipublicfiles.com/deit/deit_small_patch16_224-cd65a155.pth',
+            url='https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth',
             map_location="cpu", check_hash=True
         )
     return model
